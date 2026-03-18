@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.routes.js';
+import codeReviewService from './services/codeReviewService.js';
 
 import { removeWatermark } from './utils/image-processor.js';
 import multer from 'multer';
@@ -15,6 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Multer configuration for file uploads
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -176,18 +178,12 @@ app.post('/api/code-review/analyze', protect, async (req, res) => {
   try {
     const { repoUrl } = req.body;
 
-    const result = {
-      issues: [
-        { severity: "high", file: "src/server.js", line: 45, message: "Potential security vulnerability in image processing" },
-        { severity: "medium", file: "package.json", line: 12, message: "Outdated dependency: lodash" },
-        { severity: "low", file: "src/App.tsx", line: 5, message: "Unused import statement" },
-      ],
-      suggestions: [
-        "Add input validation in API endpoints",
-        "Implement comprehensive error handling",
-        "Remove unused imports and dead code",
-      ],
-    };
+    if (!repoUrl || !repoUrl.includes('github.com')) {
+      return res.status(400).json({ error: 'Please provide a valid GitHub repository URL (repoUrl).' });
+    }
+
+    // Call LangChain multi-agent service
+    const result = await codeReviewService.runMultiAgentReview(repoUrl);
 
     await User.findByIdAndUpdate(req.user.id, {
       $push: {
@@ -202,7 +198,8 @@ app.post('/api/code-review/analyze', protect, async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to analyze code' });
+    console.error('Code Review Error:', error);
+    res.status(500).json({ error: 'Failed to analyze code: ' + error.message });
   }
 });
 

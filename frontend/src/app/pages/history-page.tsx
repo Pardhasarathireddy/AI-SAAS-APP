@@ -19,7 +19,10 @@ import {
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { cn } from "../components/ui/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import ReactMarkdown from "react-markdown";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
+// import { cn } from "../components/ui/utils";
 import { useAuth } from "../../context/AuthContext";
 
 const modelInfo: Record<string, { title: string; icon: any; color: string; toolRoute: string }> = {
@@ -30,6 +33,26 @@ const modelInfo: Record<string, { title: string; icon: any; color: string; toolR
     "watermark-remover": { title: "Watermark Removal History", icon: ImageIcon, color: "text-pink-500", toolRoute: "/watermark-remover" },
     "resume-builder": { title: "Resume Builder History", icon: FileText, color: "text-indigo-500", toolRoute: "/resume-builder" },
     "web-scraper": { title: "Web Scraping History", icon: Globe, color: "text-cyan-500", toolRoute: "/web-scraper" },
+};
+
+const analyzeScore = (text: string) => {
+    if (!text) return 100;
+
+    // Isolate the text purely inside the Critical Issues section, ignoring the header itself
+    const issuesMatch = text.match(/### ⚠️ Critical Issues([\s\S]*?)### 💡 Recommendations/);
+    if (!issuesMatch) return 90;
+
+    const issuesText = issuesMatch[1].trim();
+
+    // If the AI said none, N/A, or nothing was written, it's perfect
+    if (!issuesText || issuesText.toLowerCase().match(/none|n\/a|no critical|looks good/i)) {
+        return 100;
+    }
+
+    const bulletCount = (issuesText.match(/^[-*]/gm) || []).length;
+    const penalty = bulletCount > 0 ? bulletCount * 15 : 20;
+
+    return Math.max(30, 100 - penalty);
 };
 
 export function HistoryPage() {
@@ -137,7 +160,7 @@ export function HistoryPage() {
         );
     }
 
-    const Icon = info.icon;
+    // const Icon = info.icon;
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -356,25 +379,48 @@ export function HistoryPage() {
                                                         </div>
                                                     </div>
                                                 ) : model === 'code-reviewer' ? (
-                                                    <div className="space-y-3">
-                                                        <div className="flex gap-4">
-                                                            <div className="text-center p-2 rounded-lg bg-accent flex-1">
-                                                                <div className="text-xl font-bold text-red-500">{item.response?.issues?.length || 0}</div>
-                                                                <div className="text-[10px] text-muted-foreground">ISSUES</div>
-                                                            </div>
-                                                            <div className="text-center p-2 rounded-lg bg-accent flex-1">
-                                                                <div className="text-xl font-bold text-blue-500">AI</div>
-                                                                <div className="text-[10px] text-muted-foreground">REVIEW</div>
-                                                            </div>
-                                                        </div>
-                                                        <ul className="space-y-1">
-                                                            {item.response?.suggestions?.slice(0, 2).map((s: string, i: number) => (
-                                                                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                                                                    <span className="text-primary font-bold mt-0.5">•</span>
-                                                                    {s}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
+                                                    <div className="space-y-4">
+                                                        {item.response?.reports ? (
+                                                            <>
+                                                                <div className="h-[250px] w-full max-w-sm mx-auto mb-4 border border-primary/20 bg-black/20 rounded-xl overflow-hidden shadow-inner">
+                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
+                                                                            { subject: 'Security', score: analyzeScore(item.response.reports.security), fullMark: 100 },
+                                                                            { subject: 'Performance', score: analyzeScore(item.response.reports.performance), fullMark: 100 },
+                                                                            { subject: 'Architecture', score: analyzeScore(item.response.reports.architecture), fullMark: 100 },
+                                                                            { subject: 'Quality', score: analyzeScore(item.response.reports.quality), fullMark: 100 },
+                                                                            { subject: 'Docs', score: analyzeScore(item.response.reports.documentation), fullMark: 100 },
+                                                                            { subject: 'Dependencies', score: analyzeScore(item.response.reports.dependencies), fullMark: 100 },
+                                                                            { subject: 'Practices', score: analyzeScore(item.response.reports.bestPractices), fullMark: 100 },
+                                                                        ]}>
+                                                                            <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
+                                                                            <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 9 }} />
+                                                                            <Radar name="Score" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
+                                                                        </RadarChart>
+                                                                    </ResponsiveContainer>
+                                                                </div>
+                                                                <Tabs defaultValue="security" className="w-full">
+                                                                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 h-auto p-1 mb-2 gap-1 bg-black/20">
+                                                                        <TabsTrigger value="security" className="py-1 text-[10px]">Sec</TabsTrigger>
+                                                                        <TabsTrigger value="performance" className="py-1 text-[10px]">Perf</TabsTrigger>
+                                                                        <TabsTrigger value="architecture" className="py-1 text-[10px]">Arch</TabsTrigger>
+                                                                        <TabsTrigger value="quality" className="py-1 text-[10px]">Qual</TabsTrigger>
+                                                                        <TabsTrigger value="documentation" className="py-1 text-[10px]">Docs</TabsTrigger>
+                                                                        <TabsTrigger value="dependencies" className="py-1 text-[10px]">Deps</TabsTrigger>
+                                                                        <TabsTrigger value="bestPractices" className="py-1 text-[10px]">Best</TabsTrigger>
+                                                                    </TabsList>
+                                                                    {['security', 'performance', 'architecture', 'quality', 'documentation', 'dependencies', 'bestPractices'].map(tab => (
+                                                                        <TabsContent key={tab} value={tab} className="space-y-4">
+                                                                            <div className="prose prose-sm prose-invert max-w-none prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-h3:text-primary prose-h3:font-bold prose-h3:border-b prose-h3:border-primary/20 prose-h3:pb-1 prose-h3:mt-4 first:prose-h3:mt-0 prose-strong:text-cyan-400 overflow-y-auto max-h-60 p-4 rounded-xl bg-card/50 border shadow-inner">
+                                                                                <ReactMarkdown>{item.response.reports[tab] || '*No data recorded*'}</ReactMarkdown>
+                                                                            </div>
+                                                                        </TabsContent>
+                                                                    ))}
+                                                                </Tabs>
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-xs text-muted-foreground italic">Legacy report data missing.</p>
+                                                        )}
                                                     </div>
                                                 ) : model === 'grammar-checker' ? (
                                                     <div className="space-y-2">
