@@ -19,6 +19,13 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 243 75% 67%;
   --radius: 0.75rem;
+
+  /* Chart Colors */
+  --chart-1: 346 87% 61%;
+  --chart-2: 160 84% 39%;
+  --chart-3: 43 96% 58%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 200 90% 50%;
 }
 
 .dark {
@@ -41,6 +48,13 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 243 75% 72%;
+
+  /* Dark Mode Chart Colors */
+  --chart-1: 346 87% 65%;
+  --chart-2: 160 84% 45%;
+  --chart-3: 43 96% 65%;
+  --chart-4: 280 65% 65%;
+  --chart-5: 200 90% 55%;
 }
 
 @layer base {
@@ -50,5 +64,36 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Global scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full border-[4px] border-solid border-background bg-clip-padding;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
   }
 }
