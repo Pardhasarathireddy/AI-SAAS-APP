@@ -1,12 +1,37 @@
 import { useState } from "react";
-import { Code2, Copy, Download, Loader2 } from "lucide-react";
+import { Code2, Copy, Loader2, Shield, Activity, Cpu, CheckCircle, FileText, Package, Star } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Badge } from "../components/ui/badge";
+// import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
+
+const analyzeScore = (text: string) => {
+  if (!text) return 100;
+
+  // Isolate the text purely inside the Critical Issues section, ignoring the header itself
+  const issuesMatch = text.match(/### ⚠️ Critical Issues([\s\S]*?)### 💡 Recommendations/);
+  if (!issuesMatch) return 90; // Fallback if format was mangled
+
+  const issuesText = issuesMatch[1].trim();
+
+  // If the AI said none, N/A, or nothing was written, it's perfect
+  if (!issuesText || issuesText.toLowerCase().match(/none|n\/a|no critical|looks good/i)) {
+    return 100;
+  }
+
+  // Count only bullet points strictly inside the issues section
+  const bulletCount = (issuesText.match(/^[-*]/gm) || []).length;
+
+  // Subtract 15 points per critical bullet found.
+  const penalty = bulletCount > 0 ? bulletCount * 15 : 20;
+
+  return Math.max(30, 100 - penalty);
+};
 
 export function CodeReviewer() {
   const [repoUrl, setRepoUrl] = useState("");
@@ -53,11 +78,11 @@ export function CodeReviewer() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20">
       <div>
-        <h1 className="mb-2">Code Reviewer</h1>
+        <h1 className="mb-2">Multi-Agent Code Reviewer</h1>
         <p className="text-muted-foreground">
-          Analyze GitHub repositories and get comprehensive code review insights
+          Powered by LangChain & Groq: 7 Parallel Agents evaluating your GitHub repository
         </p>
       </div>
 
@@ -86,7 +111,7 @@ export function CodeReviewer() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
+                7 AI Agents Analyzing Source Code...
               </>
             ) : (
               "Analyze Repository"
@@ -96,68 +121,76 @@ export function CodeReviewer() {
       </Card>
 
       {/* Results Section */}
-      {result && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Review Results</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={copyToClipboard}>
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+      {result && result.reports && (
+        <div className="space-y-6">
+          <Card className="shadow-lg border-primary/20">
+            <CardHeader className="bg-muted/30 border-b">
+              <CardTitle className="text-xl">Repository Health Radar</CardTitle>
+              <CardDescription>Visual breakdown of the code review parameters based on AI severity mappings</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
+                    { subject: 'Security', score: analyzeScore(result.reports.security), fullMark: 100 },
+                    { subject: 'Performance', score: analyzeScore(result.reports.performance), fullMark: 100 },
+                    { subject: 'Architecture', score: analyzeScore(result.reports.architecture), fullMark: 100 },
+                    { subject: 'Quality', score: analyzeScore(result.reports.quality), fullMark: 100 },
+                    { subject: 'Documentation', score: analyzeScore(result.reports.documentation), fullMark: 100 },
+                    { subject: 'Dependencies', score: analyzeScore(result.reports.dependencies), fullMark: 100 },
+                    { subject: 'Practices', score: analyzeScore(result.reports.bestPractices), fullMark: 100 },
+                  ]}>
+                    <PolarGrid stroke="hsl(var(--muted-foreground))" strokeOpacity={0.2} />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} />
+                    <Radar name="Score" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.5} />
+                  </RadarChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="overview">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="issues">Issues</TabsTrigger>
-                <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-              </TabsList>
+            </CardContent>
+          </Card>
 
-              <TabsContent value="overview" className="space-y-4">
-                <div className="p-6 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
-                  <div className="text-center">
-                    <div className="text-5xl font-bold mb-2">{result.score}/10</div>
-                    <p className="text-muted-foreground">Overall Code Quality Score</p>
-                  </div>
+          <Card className="shadow-lg border-primary/20">
+            <CardHeader className="bg-muted/30 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Comprehensive Review Results</CardTitle>
+                  <CardDescription className="mt-1">
+                    Analysis completed in {(result.metadata?.analysisTimeMs / 1000).toFixed(1)} seconds
+                  </CardDescription>
                 </div>
-              </TabsContent>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy URL
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Tabs defaultValue="security" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 h-auto p-1 pb-2 mb-6 gap-1 md:gap-2 bg-muted/50">
+                  <TabsTrigger value="security" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><Shield className="w-4 h-4 text-red-500" /> <span className="text-xs">Security</span></TabsTrigger>
+                  <TabsTrigger value="performance" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><Activity className="w-4 h-4 text-orange-500" /> <span className="text-xs">Performance</span></TabsTrigger>
+                  <TabsTrigger value="architecture" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><Cpu className="w-4 h-4 text-blue-500" /> <span className="text-xs">Architecture</span></TabsTrigger>
+                  <TabsTrigger value="quality" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><CheckCircle className="w-4 h-4 text-green-500" /> <span className="text-xs">Code Quality</span></TabsTrigger>
+                  <TabsTrigger value="documentation" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><FileText className="w-4 h-4 text-gray-500" /> <span className="text-xs">Documentation</span></TabsTrigger>
+                  <TabsTrigger value="dependencies" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><Package className="w-4 h-4 text-purple-500" /> <span className="text-xs">Dependencies</span></TabsTrigger>
+                  <TabsTrigger value="bestPractices" className="py-3 flex flex-col items-center gap-2 data-[state=active]:bg-card"><Star className="w-4 h-4 text-yellow-500" /> <span className="text-xs">Best Practices</span></TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="issues" className="space-y-3">
-                {result.issues.map((issue: any, idx: number) => (
-                  <div key={idx} className="p-4 rounded-lg border bg-card">
-                    <div className="flex items-start justify-between mb-2">
-                      <Badge variant={issue.severity === "high" ? "destructive" : "secondary"}>
-                        {issue.severity}
-                      </Badge>
-                      <code className="text-xs text-muted-foreground">Line {issue.line}</code>
+                {/* Tabs Rendering */}
+                {['security', 'performance', 'architecture', 'quality', 'documentation', 'dependencies', 'bestPractices'].map((tab) => (
+                  <TabsContent key={tab} value={tab} className="space-y-4">
+                    <div className="prose prose-sm md:prose-base prose-invert max-w-none prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-h3:text-primary prose-h3:font-bold prose-h3:border-b prose-h3:border-primary/20 prose-h3:pb-2 prose-h3:mt-8 first:prose-h3:mt-0 prose-strong:text-cyan-400 p-6 rounded-xl bg-card/50 border shadow-inner">
+                      <ReactMarkdown>{result.reports[tab as keyof typeof result.reports]}</ReactMarkdown>
                     </div>
-                    <p className="font-medium mb-1">{issue.file}</p>
-                    <p className="text-sm text-muted-foreground">{issue.message}</p>
-                  </div>
+                  </TabsContent>
                 ))}
-              </TabsContent>
 
-              <TabsContent value="suggestions" className="space-y-3">
-                {result.suggestions.map((suggestion: string, idx: number) => (
-                  <div key={idx} className="p-4 rounded-lg border bg-card flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-sm font-medium">{idx + 1}</span>
-                    </div>
-                    <p className="text-sm">{suggestion}</p>
-                  </div>
-                ))}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
