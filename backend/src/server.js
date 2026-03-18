@@ -9,6 +9,10 @@ import { removeWatermark } from './utils/image-processor.js';
 import multer from 'multer';
 import { protect } from './middleware/auth.middleware.js';
 import User from './models/user.model.js';
+import csv from 'csv-parser';
+import * as xlsx from 'xlsx';
+import { Readable } from 'stream';
+import { analyzeDataWithGroq } from './services/groq.service.js';
 
 dotenv.config();
 
@@ -100,18 +104,58 @@ app.post('/api/data-analyst/analyze', protect, upload.single('file'), async (req
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    // Simulate analysis (since we don't have a real data engine yet)
+    const { query } = req.body;
+    let records = [];
+    let columns = [];
+    let missingValuesCount = 0;
+
+    // Determine if CSV or Excel
+    const isCsv = req.file.originalname.endsWith('.csv');
+    
+    if (isCsv) {
+      await new Promise((resolve, reject) => {
+        const stream = Readable.from(req.file.buffer);
+        stream.pipe(csv())
+          .on('headers', (headers) => { columns = headers; })
+          .on('data', (data) => {
+            records.push(data);
+            // Rough count of missing values
+            Object.values(data).forEach(val => { if (!val || val.trim() === '') missingValuesCount++; });
+          })
+          .on('end', resolve)
+          .on('error', reject);
+      });
+    } else {
+      // Excel parse
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      records = xlsx.utils.sheet_to_json(worksheet, { defval: "" }); // keep empty cells
+      if (records.length > 0) columns = Object.keys(records[0]);
+      
+      // Rough missing value count
+      records.forEach(row => {
+        Object.values(row).forEach(val => { if (val === "") missingValuesCount++; });
+      });
+    }
+
+    const summary = {
+      totalRows: records.length,
+      totalColumns: columns.length,
+      missingValues: missingValuesCount,
+    };
+
+    // Keep sample small for prompt
+    const dataSample = records.slice(0, 30);
+    
+    // Call Groq API
+    console.log(`Analyzing data for user ${req.user.id} with query ${query}`);
+    const analysisResponse = await analyzeDataWithGroq(dataSample, columns, query, summary);
+
     const result = {
-      summary: {
-        totalRows: 1000,
-        totalColumns: 5,
-        missingValues: 23,
-      },
-      insights: [
-        "Sales show an upward trend over the period",
-        "Revenue peaked in March with a 450% increase",
-        "Strong correlation between sales and revenue (0.85)",
-      ],
+      summary,
+      insights: analysisResponse.insights || [],
+      charts: analysisResponse.charts || {}
     };
 
     // Save to history
@@ -119,7 +163,7 @@ app.post('/api/data-analyst/analyze', protect, upload.single('file'), async (req
       $push: {
         history: {
           model: 'data-analyst',
-          userInputs: { filename: req.file.originalname, size: req.file.size },
+          userInputs: { filename: req.file.originalname, size: req.file.size, query },
           response: result,
           createdAt: new Date()
         }
@@ -129,7 +173,7 @@ app.post('/api/data-analyst/analyze', protect, upload.single('file'), async (req
     res.json(result);
   } catch (error) {
     console.error('Data analyst error:', error);
-    res.status(500).json({ error: 'Failed to analyze data' });
+    res.status(500).json({ error: 'Failed to analyze data: ' + error.message });
   }
 });
 

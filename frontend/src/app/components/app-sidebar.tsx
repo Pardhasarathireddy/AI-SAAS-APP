@@ -77,8 +77,7 @@ export function AppSidebar() {
   }
   const filteredHistory = history
     .filter(item => item.model === currentModel)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5); // Show last 5
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const formatTitle = (item: any) => {
     if (item.model === 'watermark-remover') return item.userInputs?.filename || "Processed Image";
@@ -115,8 +114,8 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-        <div className="mb-6">
+      <nav className="flex-1 p-4 flex flex-col overflow-hidden">
+        <div className="mb-6 flex-shrink-0">
           <ul className="space-y-1">
             {mainMenuItems.map((item) => {
               const Icon = item.icon;
@@ -145,8 +144,8 @@ export function AppSidebar() {
 
         {/* Previous Chats Section */}
         {currentModel && (
-          <div className="mt-8 animate-in fade-in slide-in-from-left-4 duration-500">
-            <div className="flex items-center justify-between px-3 mb-4">
+          <div className="mt-8 flex flex-col min-h-0 flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
+            <div className="flex items-center justify-between px-3 mb-4 flex-shrink-0">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <Clock className="w-3.5 h-3.5" />
                 <span>Previous History</span>
@@ -158,7 +157,7 @@ export function AppSidebar() {
                 View all
               </button>
             </div>
-            <ul className="space-y-1">
+            <ul className="space-y-1 flex-1 overflow-y-auto custom-scrollbar pr-2">
               {filteredHistory.map((item, idx) => (
                 <li key={item._id || idx}>
                   <button

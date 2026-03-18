@@ -21,7 +21,7 @@ import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import ReactMarkdown from "react-markdown";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
 // import { cn } from "../components/ui/utils";
 import { useAuth } from "../../context/AuthContext";
 
@@ -35,6 +35,7 @@ const modelInfo: Record<string, { title: string; icon: any; color: string; toolR
     "web-scraper": { title: "Web Scraping History", icon: Globe, color: "text-cyan-500", toolRoute: "/web-scraper" },
 };
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ff6b6b', '#4ecdc4', '#45b7d1'];
 const analyzeScore = (text: string) => {
     if (!text) return 100;
 
@@ -120,6 +121,7 @@ export function HistoryPage() {
             if (response.ok) {
                 setHistory(prev => prev.filter(item => item._id !== id));
                 toast.success("History item deleted successfully");
+                window.dispatchEvent(new Event("historyUpdated"));
             } else {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || "Failed to delete history item");
@@ -433,7 +435,145 @@ export function HistoryPage() {
                                                         </div>
                                                         <p className="text-sm italic text-muted-foreground line-clamp-3">"{item.response?.correctedText}"</p>
                                                     </div>
-                                                ) : (
+                                                ) : model === 'data-analyst' && item.response ? (() => {
+                                                    const result = item.response;
+                                                    const xAxisKey = result.charts?.xAxisKey || "month";
+                                                    const metrics = result.charts?.metrics || ["sales", "revenue"];
+                                                    const chartData = result.charts?.mockData || [];
+                                                    const pieChartData = result.charts?.pieData || [];
+                                                    
+                                                    return (
+                                                        <div className="space-y-8 animate-in fade-in">
+                                                            {/* Summary Section */}
+                                                            {result.summary && (
+                                                            <div className="space-y-4">
+                                                                <h3 className="text-lg font-semibold border-b pb-2">Dataset Summary</h3>
+                                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                                    <div className="p-4 rounded-lg border bg-card">
+                                                                        <p className="text-sm text-muted-foreground mb-1">Total Rows</p>
+                                                                        <p className="text-2xl font-bold">{result.summary.totalRows?.toLocaleString()}</p>
+                                                                    </div>
+                                                                    <div className="p-4 rounded-lg border bg-card">
+                                                                        <p className="text-sm text-muted-foreground mb-1">Total Columns</p>
+                                                                        <p className="text-2xl font-bold">{result.summary.totalColumns}</p>
+                                                                    </div>
+                                                                    <div className="p-4 rounded-lg border bg-card">
+                                                                        <p className="text-sm text-muted-foreground mb-1">Missing Values</p>
+                                                                        <p className="text-2xl font-bold">{result.summary.missingValues}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            )}
+
+                                                            {/* AI Insights Section */}
+                                                            {result.insights && result.insights.length > 0 && (
+                                                            <div className="space-y-4">
+                                                                <h3 className="text-lg font-semibold border-b pb-2">Key AI Insights</h3>
+                                                                <div className="grid grid-cols-1 gap-3">
+                                                                    {result.insights.map((insight: string, idx: number) => (
+                                                                        <div key={idx} className="p-4 rounded-lg border bg-card shadow-sm flex items-start gap-3">
+                                                                            <div className="w-6 h-6 rounded-full bg-primary/10 flex flex-shrink-0 items-center justify-center mt-0.5">
+                                                                                <span className="text-sm font-medium">{idx + 1}</span>
+                                                                            </div>
+                                                                            <p className="text-sm leading-relaxed">{insight}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            )}
+
+                                                            {/* Charts Section */}
+                                                            {chartData.length > 0 && (
+                                                            <div className="space-y-4">
+                                                                <h3 className="text-lg font-semibold border-b pb-2">Visual Analytics</h3>
+                                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                                    {/* Chart 1: Revenue vs Sales Area Chart */}
+                                                                    <div className="p-4 rounded-xl border bg-card shadow-sm">
+                                                                        <h3 className="mb-4 font-semibold text-sm text-muted-foreground uppercase tracking-wider">Trend Analysis</h3>
+                                                                        <div className="h-[300px] w-full">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                                                    <defs>
+                                                                                        <linearGradient id={`colorM0-${item._id}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                            <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
+                                                                                            <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                                                                                        </linearGradient>
+                                                                                        <linearGradient id={`colorM1-${item._id}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                            <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8} />
+                                                                                            <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
+                                                                                        </linearGradient>
+                                                                                    </defs>
+                                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                                                                    <XAxis dataKey={xAxisKey} tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12, opacity: 0.7 }} />
+                                                                                    <YAxis tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12, opacity: 0.7 }} />
+                                                                                    <Tooltip 
+                                                                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                                                                                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                                                                                    />
+                                                                                    <Legend iconType="circle" />
+                                                                                    <Area type="monotone" name={metrics[0]} dataKey={metrics[0]} stroke="hsl(var(--chart-1))" fillOpacity={1} fill={`url(#colorM0-${item._id})`} strokeWidth={2} />
+                                                                                    <Area type="monotone" name={metrics[1] || "Metric 2"} dataKey={metrics[1] || "revenue"} stroke="hsl(var(--chart-2))" fillOpacity={1} fill={`url(#colorM1-${item._id})`} strokeWidth={2} />
+                                                                                </AreaChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Chart 2: Category Breakdown Pie Chart */}
+                                                                    <div className="p-4 rounded-xl border bg-card shadow-sm">
+                                                                        <h3 className="mb-4 font-semibold text-sm text-muted-foreground uppercase tracking-wider">Distribution</h3>
+                                                                        <div className="h-[300px] w-full">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <PieChart>
+                                                                                    <Pie
+                                                                                        data={pieChartData}
+                                                                                        cx="50%"
+                                                                                        cy="50%"
+                                                                                        innerRadius={60}
+                                                                                        outerRadius={100}
+                                                                                        paddingAngle={5}
+                                                                                        dataKey="value"
+                                                                                        stroke="none"
+                                                                                    >
+                                                                                        {pieChartData.map((_: any, index: number) => (
+                                                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                                                        ))}
+                                                                                    </Pie>
+                                                                                    <Tooltip 
+                                                                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                                                                                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                                                                                    />
+                                                                                    <Legend iconType="circle" />
+                                                                                </PieChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Chart 3: Monthly Performance Bar Chart */}
+                                                                    <div className="p-4 rounded-xl border bg-card shadow-sm lg:col-span-2">
+                                                                        <h3 className="mb-4 font-semibold text-sm text-muted-foreground uppercase tracking-wider">Comparative Analytics</h3>
+                                                                        <div className="h-[300px] w-full">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={30}>
+                                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                                                                    <XAxis dataKey={xAxisKey} tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12, opacity: 0.7 }} />
+                                                                                    <YAxis tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12, opacity: 0.7 }} />
+                                                                                    <Tooltip 
+                                                                                        cursor={{ fill: 'var(--muted)' }}
+                                                                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                                                                                    />
+                                                                                    <Legend iconType="circle" />
+                                                                                    <Bar name={metrics[0]} dataKey={metrics[0]} fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                                                                                    <Bar name={metrics[1] || "Metric 2"} dataKey={metrics[1] || "revenue"} fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                                                                                </BarChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })() : (
                                                     <div className="flex items-center gap-2">
                                                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                                                         <span className="text-sm font-medium">Results processed successfully</span>
